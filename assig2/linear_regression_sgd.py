@@ -60,11 +60,20 @@ def main(args):
         # A gradient for example (x_i, t_i) is `(x_i^T weights - t_i) * x_i`,
         # and the SGD update is `weights = weights - args.learning_rate * gradient`.
         # You can assume that `args.batch_size` exactly divides `train_data.shape[0]`.
-        for i in range(0, train_data.shape[0] , args.batch_size):
-            batch_indexes = permutation[i: i + args.batch_size]
 
-            batch = np.zeros((args.batch_size, train_data.shape[1]))
-            target = np.zeros(args.batch_size)
+        for i in range(0, train_data.shape[0] , args.batch_size):
+
+            until = i + args.batch_size
+
+            if until >= train_data.shape[0]:
+                batch_indexes = permutation[i:]
+            else:
+                batch_indexes = permutation[i:until]
+
+            num_of_batch_instances = batch_indexes.size
+
+            batch = np.zeros((num_of_batch_instances, train_data.shape[1]))
+            target = np.zeros(num_of_batch_instances)
 
             at = 0
             for ind in batch_indexes:
@@ -75,8 +84,8 @@ def main(args):
 
             loss = (batch @ weights - target)
 
-            gradients = np.zeros((args.batch_size, train_data.shape[1]))
-            for ind in range(loss.size):
+            gradients = np.zeros((num_of_batch_instances, train_data.shape[1]))
+            for ind in range(num_of_batch_instances):
                 gradients[ind] = loss[ind] * batch[ind]
 
             avg_gradient = np.average(gradients, axis=0)
