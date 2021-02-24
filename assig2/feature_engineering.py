@@ -74,7 +74,7 @@ def main(args):
     # Then transform the training data into `X_train` (you can do both these
     # steps using `fit_transform`), and transform testing data to `X_test`.
     X_train = pipe.fit_transform(X_train)
-    X_test = pipe.fit_transform(X_test)
+    X_test = pipe.transform(X_test)
 
     return X_train, X_test
 
