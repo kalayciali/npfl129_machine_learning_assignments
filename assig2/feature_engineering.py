@@ -50,7 +50,7 @@ def main(args):
     one_hot = sklearn.preprocessing.OneHotEncoder(handle_unknown="ignore",
                                                   sparse=False)
     check_colmns = np.mod(X_train, 1)
-    one_hot_cols = np.all(check_colmns== check_colmns[0,:], axis = 0)
+    one_hot_cols = np.all(check_colmns == check_colmns[0,:], axis = 0)
 
     scaler = sklearn.preprocessing.StandardScaler()
     ct = sklearn.compose.ColumnTransformer([
