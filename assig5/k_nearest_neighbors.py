@@ -31,7 +31,6 @@ parser = argparse.ArgumentParser()
 # These arguments will be set appropriately by ReCodEx, even if you change them.
 parser.add_argument("--k", default=1, type=int, help="K nearest neighbors to consider")
 parser.add_argument("--p", default=2, type=int, help="Use L_p as distance metric")
-parser.add_argument("--plot", default=False, const=True, nargs="?", type=str, help="Plot the predictions")
 parser.add_argument("--recodex", default=False, action="store_true", help="Running in ReCodEx")
 parser.add_argument("--seed", default=42, type=int, help="Random seed")
 parser.add_argument("--test_size", default=1000, type=lambda x:int(x) if x.isdigit() else float(x), help="Test set size")
@@ -65,6 +64,7 @@ def main(args):
 
 
     test_predictions = []
+    test_neighbors = []
     for test_i, test_instance in enumerate(test_data):
         distances = []
         smallest_k_dist_targets = []
@@ -74,28 +74,17 @@ def main(args):
 
         distances.sort(key=lambda x: x[1])
 
+        test_neighbor = []
         for i in range(args.k):
             train_target_i = distances[i][0]
             smallest_k_dist_targets.append(train_target.iloc[train_target_i])
+            test_neighbor.append(train_target_i)
 
+        test_neighbors.append(test_neighbor)
         test_predictions.append(max(set(smallest_k_dist_targets), key=smallest_k_dist_targets.count))
 
 
     accuracy = sklearn.metrics.accuracy_score(test_target, test_predictions)
-
-    if args.plot:
-        import matplotlib.pyplot as plt
-        examples = [[] for _ in range(10)]
-        for i in range(len(test_predictions)):
-            if test_predictions[i] != test_target[i] and not examples[test_target[i]]:
-                examples[test_target[i]] = [test_data[i], *train_data[test_neighbors[i]]]
-        examples = [[img.reshape(28, 28) for img in example] for example in examples if example]
-        examples = [[example[0]] + [np.zeros_like(example[0])] + example[1:] for example in examples]
-        plt.imshow(np.concatenate([np.concatenate(example, axis=1) for example in examples], axis=0), cmap="gray")
-        plt.gca().get_xaxis().set_visible(False)
-        plt.gca().get_yaxis().set_visible(False)
-        if args.plot is True: plt.show()
-        else: plt.savefig(args.plot, transparent=True, bbox_inches="tight")
 
     return accuracy
 
