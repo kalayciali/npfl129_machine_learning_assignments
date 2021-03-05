@@ -63,14 +63,6 @@ def main(args):
     # If you want to plot misclassified examples, you need to also fill `test_neighbors`
     # with indices of nearest neighbors; but it is not needed for passing in ReCodEx.
 
-    def change_with_biggest_dist(num, num_list):
-        biggest_dist = np.NINF
-        index_of_it = None
-        for i, num_target in enumerate(num_list):
-            if num < num_target and num_target - num > biggest_dist: 
-                index_of_it = i
-        return index_of_it
-
 
     test_predictions = []
     for test_i, test_instance in enumerate(test_data):
@@ -81,6 +73,7 @@ def main(args):
             distances.append((train_i, distance))
 
         distances.sort(key=lambda x: x[1])
+
         for i in range(args.k):
             train_target_i = distances[i][0]
             smallest_k_dist_targets.append(train_target.iloc[train_target_i])
