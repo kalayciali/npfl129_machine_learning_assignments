@@ -30,20 +30,9 @@ def rbf_kernel(x, y, gamma, _):
     exponent = - gamma * (np.linalg.norm(x - y) ** 2)
     return np.exp(exponent)
 
-def kernel(args, x, y, func):
-    # TODO: As in `kernel_linear_regression`, We consider the following `args.kernel`s:
-    # - "poly": K(x, y; degree, gamma) = (gamma * x^T y + 1) ^ degree
-    # - "rbf": K(x, y; gamma) = exp^{- gamma * ||x - y||^2}
-    # calc kernel value than return it
-
-    return func(x, y, args.kernel_gamma, args.kernel_degree)
-
-def predict(a, ind, y, KERNEL, bias):
-    # ind is the ind of data we are predicting
-    # KERNEL is precomputed matrix
-    # y is target values
-    return sum(a[i] * y[i] * KERNEL[ind, i] for i in range(len(a))) + bias
-
+def predict(a, ins, kernel_f, data, target, bias):
+    # predict according to kernel function
+    return sum(a[i] * target[i] * kernel_f(ins, data[i], args.kernel_gamma, args.kernel_degree) for i in range(len(a))) + bias
 
 
 # We implement the SMO algorithm as a separate method, so we can use
@@ -59,28 +48,28 @@ def smo(args, train_data, train_target, test_data, test_target):
     generator = np.random.RandomState(args.seed)
 
     # decide on which kernel func
-    KERNEL_FUNC = poly_kernel if args.kernel == "poly" else rbf_kernel
+    kernel_f = poly_kernel if args.kernel == "poly" else rbf_kernel
 
     # precalculate kernel
     TRAIN_KERNEL = np.zeros((len(train_data), len(train_data)))
-    TEST_KERNEL = np.zeros((len(test_data), len(test_data)))
 
     for i in range(len(train_data)):
         for j in range(len(train_data)):
-            TRAIN_KERNEL[i, j] = kernel(args, train_data[i], train_data[j], KERNEL_FUNC)
+            TRAIN_KERNEL[i, j] = kernel_f(train_data[i], train_data[j], args.kernel_gamma, args.kernel_degree)
 
-    for i in range(len(test_data)):
-        for j in range(len(test_data)):
-            TEST_KERNEL[i, j] = kernel(args, test_data[i], test_data[j], KERNEL_FUNC)
+    predict_for = lambda ins: predict(a, ins, kernel_f, train_data, train_target, b)
+
 
     # we control multiple times 
     # whether found soln is correct 
     passes_without_as_changing = 0
     train_accs, test_accs = [], []
 
+
     # for easy calc. introduce error param
     # here we mostly depend on the order of data
-    E = [ predict(a, i, train_target, TRAIN_KERNEL, b) - train_target[i] for i in range(len(train_data)) ]
+    E = [ predict_for(train_data[i]) - train_target[i] for i in range(len(train_data)) ]
+
     for _ in range(args.max_iterations):
         as_changed = 0
         # Iterate through the data
@@ -113,7 +102,8 @@ def smo(args, train_data, train_target, test_data, test_target):
 
             # - increase `as_changed`
 
-            E[i] = predict(a, i, train_target, TRAIN_KERNEL, b) - train_target[i]
+
+            E[i] = predict_for(train_data[i]) - train_target[i]
 
             # check for KKT conditions
             lower_than_C = a[i] < args.C and train_target[i] * E[i] > - args.tolerance
@@ -121,7 +111,8 @@ def smo(args, train_data, train_target, test_data, test_target):
 
             if not lower_than_C or not higher_than_0:
                 # required conditions not met 
-                E[j] = predict(a, j, train_target, TRAIN_KERNEL, b) - train_target[j]
+                E[j] = predict_for(train_data[j]) - train_target[j]
+
                 second_deriv = 2 * TRAIN_KERNEL[i, j] - TRAIN_KERNEL[i, i] - TRAIN_KERNEL[j, j]
 
                 if second_deriv > -args.tolerance:
@@ -163,10 +154,10 @@ def smo(args, train_data, train_target, test_data, test_target):
         # TODO: After each iteration, measure the accuracy for both the
         # train set and the test set and append it to `train_accs` and `test_accs`.
 
-        train_predictions = [ 1 if predict(a, i, train_target, TRAIN_KERNEL, b) > 0 else -1 for i in range(len(train_data)) ]
+        train_predictions = [ 1 if predict_for(train_data[i]) > 0 else -1 for i in range(len(train_data)) ]
         train_accs.append(sklearn.metrics.accuracy_score(train_target, train_predictions))
 
-        test_predictions = [ 1 if predict(a, i, test_target, TEST_KERNEL, b) > 0 else -1 for i in range(len(test_data)) ]
+        test_predictions = [ 1 if predict_for(test_data[i]) > 0 else -1 for i in range(len(test_data)) ]
         test_accs.append(sklearn.metrics.accuracy_score(test_target, test_predictions))
 
         # Stop training if max_passes_without_as_changing passes were reached
@@ -226,9 +217,9 @@ def main(args):
             plt.scatter(test_data[test_mismatch, 0], test_data[test_mismatch, 1], marker="*", s=130, label="Test Errors", c="#ffff00")
             plt.legend(loc="upper center", ncol=4)
 
-        KERNEL_FUNC = poly_kernel if args.kernel == "poly" else rbf_kernel
-        predict_function = lambda x: sum(a[i] * train_target[i] * kernel(args, train_data[i], x, KERNEL_FUNC) for i in range(len(a))) + bias
-        plotter(predict_function, support_vectors, data)
+        kernel_f = poly_kernel if args.kernel == "poly" else rbf_kernel
+        predict_for = lambda ins: predict(a, ins, kernel_f, train_data, train_target, bias)
+        plotter(predict_for, support_vectors, data)
         if args.plot is True: plt.show()
 
     return support_vectors, support_vector_weights, bias, train_accs, test_accs

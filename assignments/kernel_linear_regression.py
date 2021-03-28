@@ -70,27 +70,20 @@ def main(args):
         exponent = - gamma * (np.linalg.norm(x - y) ** 2)
         return np.exp(exponent)
 
-    def predict(betas, ind, KERNEL, bias, size):
-        # predict according to kernel
-        return np.sum([ betas[i] * KERNEL[ind, i] for i in range(size)]) + bias
+    def predict(betas, ins, kernel_f, data, bias):
+        # predict according to kernel function
+        return np.sum([ betas[i] * kernel_f(ins, data[i], args.kernel_gamma, args.kernel_degree) for i in range(len(data))]) + bias
 
 
     # pre-calculate kernel
     kernel_func = rbf_kernel if args.kernel == "rbf" else poly_kernel
 
     TRAIN_KERNEL = np.zeros((args.data_size, args.data_size))
-    TEST_KERNEL = np.zeros((args.data_size, args.data_size))
-
 
     for i in range(args.data_size):
         for j in range(args.data_size):
             TRAIN_KERNEL[i, j] = kernel_func(train_data[i], train_data[j],
                                        args.kernel_gamma, args.kernel_degree)
-
-    for i in range(args.data_size):
-        for j in range(args.data_size):
-            TEST_KERNEL[i, j] = kernel_func(test_data[i], test_data[j],
-                                            args.kernel_gamma, args.kernel_degree)
 
     train_rmses, test_rmses = [], []
 
@@ -121,8 +114,9 @@ def main(args):
 
         # after each iteration calc rmses
 
-        train_predictions = [predict(betas, ind, TRAIN_KERNEL, bias, args.data_size) for ind in range(args.data_size)]
-        test_predictions = [predict(betas, ind, TEST_KERNEL, bias, args.data_size) for ind in range(args.data_size)]
+
+        train_predictions = [predict(betas, ins, kernel_func, train_data, bias) for ins in (train_data)]
+        test_predictions = [predict(betas, ins, kernel_func, train_data, bias) for ins in (test_data)]
 
         train_rmses.append( np.sqrt(sklearn.metrics.mean_squared_error(train_target, train_predictions)) )
         test_rmses.append( np.sqrt(sklearn.metrics.mean_squared_error(test_target, test_predictions)) )
