@@ -1,27 +1,43 @@
 #!/usr/bin/env python3
 import argparse
+import itertools
 
 import numpy as np
 import sklearn.datasets
 import sklearn.metrics
 import sklearn.model_selection
-import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser()
 # These arguments will be set appropriately by ReCodEx, even if you change them.
 parser.add_argument("--C", default=1, type=float, help="Inverse regularization strength")
-parser.add_argument("--data_size", default=200, type=int, help="Data size")
+parser.add_argument("--classes", default=10, type=int, help="Number of classes")
 parser.add_argument("--kernel", default="poly", type=str, help="Kernel type [poly|rbf]")
 parser.add_argument("--kernel_degree", default=1, type=int, help="Degree for poly kernel")
 parser.add_argument("--kernel_gamma", default=1.0, type=float, help="Gamma for poly and rbf kernel")
 parser.add_argument("--max_iterations", default=1000, type=int, help="Maximum number of iterations to perform")
 parser.add_argument("--max_passes_without_as_changing", default=10, type=int, help="Number of passes without changes to stop after")
-parser.add_argument("--plot", default=False, const=True, nargs="?", type=str, help="Plot the predictions")
 parser.add_argument("--recodex", default=False, action="store_true", help="Running in ReCodEx")
 parser.add_argument("--seed", default=42, type=int, help="Random seed")
 parser.add_argument("--test_size", default=0.5, type=lambda x:int(x) if x.isdigit() else float(x), help="Test set size")
 parser.add_argument("--tolerance", default=1e-4, type=float, help="Default tolerance for KKT conditions")
 # If you add more arguments, ReCodEx will keep them with your default values.
+
+# Copy paste methods from smo algorithm
+
+def get_data_only_for_binary(perm, data, target):
+    # we will get data only for perm classes
+    b_data, b_target = [], []
+    for d, t in zip(data, target):
+        if perm[0] == t:
+            b_target.append(1)
+            b_data.append(d)
+        elif perm[1] == t:
+            b_target.append(-1)
+            b_data.append(d)
+
+    b_data, b_target = np.array(b_data), np.array(b_target)
+    return (b_data, b_target)
+
 
 def poly_kernel(x, y, gamma, degree):
     return (gamma * np.dot(x,y) + 1) ** degree
@@ -35,9 +51,7 @@ def predict(a, ins, kernel_f, data, target, bias):
     return sum(a[i] * target[i] * kernel_f(ins, data[i], args.kernel_gamma, args.kernel_degree) for i in range(len(a))) + bias
 
 
-# We implement the SMO algorithm as a separate method, so we can use
-# it in the svm_multiclass assignment too.
-def smo(args, train_data, train_target, test_data, test_target):
+def smo(args, train_data, train_target, test_data):
     # Create initial weights
     # there is one bias and 
     # lagrange multipliers for each data instance
@@ -163,72 +177,79 @@ def smo(args, train_data, train_target, test_data, test_target):
         train_accs.append(sklearn.metrics.accuracy_score(train_target, train_predictions))
 
         test_predictions = [ 1 if predict_for(test_data[i]) > 0 else -1 for i in range(len(test_data)) ]
-        test_accs.append(sklearn.metrics.accuracy_score(test_target, test_predictions))
+
 
         # Stop training if max_passes_without_as_changing passes were reached
         passes_without_as_changing = 0 if as_changed else passes_without_as_changing + 1
         if passes_without_as_changing >= args.max_passes_without_as_changing:
             break
 
-        if len(train_accs) % 100 == 0 and len(train_accs) < args.max_iterations:
-            print("Iteration {}, train acc {:.1f}%, test acc {:.1f}%".format(
-                len(train_accs), 100 * train_accs[-1], 100 * test_accs[-1]))
+        if len(train_accs) % 10 == 0 and len(train_accs) < args.max_iterations:
+            print("Iteration {}, train acc {:.1f}% ".format(
+                len(train_accs), 100 * train_accs[-1]))
 
-    print("Training finished after iteration {}, train acc {:.1f}%, test acc {:.1f}%".format(
-        len(train_accs), 100 * train_accs[-1], 100 * test_accs[-1]))
+    print("Training finished after iteration {}, train acc {:.1f}%".format(
+        len(train_accs), 100 * train_accs[-1]))
 
     # TODO: Create an array of support vectors (in the same order in which they appeared
     # in the training data; to avoid rounding errors, consider a training example
     # a support vector only if a_i > `args.tolerance`) and their weights (a_i * t_i).
     # Note that until now the full `a` should have been used for prediction.
 
-    support_vectors, support_vector_weights  = [], []
-    for i in range(len(train_data)):
-        if a[i] > args.tolerance:
-            support_vectors.append(train_data[i])
-            support_vector_weights.append(train_target[i] * a[i])
-    support_vectors = np.array(support_vectors)
-    support_vector_weights = np.array(support_vector_weights)
+    return test_predictions
 
-    return support_vectors, support_vector_weights, a, b, train_accs, test_accs
 
 def main(args):
-    # Generate an artifical regression dataset, with +-1 as targets
-    data, target = sklearn.datasets.make_classification(
-        n_samples=args.data_size, n_features=2, n_informative=2, n_redundant=0, random_state=args.seed)
-    target = 2 * target - 1
+    # Use the digits dataset.
+    data, target = sklearn.datasets.load_digits(n_class=args.classes, return_X_y=True)
+    data = sklearn.preprocessing.MinMaxScaler().fit_transform(data)
 
     # Split the dataset into a train set and a test set.
     train_data, test_data, train_target, test_target = sklearn.model_selection.train_test_split(
         data, target, test_size=args.test_size, random_state=args.seed)
 
-    # Run the SMO algorithm
-    support_vectors, support_vector_weights, a, bias, train_accs, test_accs = smo(
-        args, train_data, train_target, test_data, test_target)
+    # TODO: Using One-vs-One scheme, train (K \binom 2) classifiers, one for every
+    # pair of classes $i < j$, using the `smo` method.
+    #
+    # When training a classifier for classes $i < j$:
+    # - keep only the training data of these classes, in the same order
+    #   as in the input dataset;
+    # - use targets 1 for the class $i$ and -1 for the class $j$.
+    # so we need to write method to change target vals
 
-    if args.plot:
 
-        def plotter(predict, support_vectors, data):
-            xs = np.linspace(np.min(data[:, 0]), np.max(data[:, 0]), 50)
-            ys = np.linspace(np.min(data[:, 1]), np.max(data[:, 1]), 50)
-            predictions = [[predict(np.array([x, y])) for x in xs] for y in ys]
-            test_mismatch = np.sign([predict(x) for x in test_data]) != test_target
-            plt.figure()
-            plt.contourf(xs, ys, predictions, levels=0, cmap=plt.cm.RdBu)
-            plt.contour(xs, ys, predictions, levels=[-1, 0, 1], colors="k", zorder=1)
-            plt.scatter(train_data[:, 0], train_data[:, 1], c=train_target, marker="o", label="Train", cmap=plt.cm.RdBu, zorder=2)
-            plt.scatter(support_vectors[:, 0], support_vectors[:, 1], marker="o", s=90, label="Support Vectors", c="#00dd00")
-            plt.scatter(test_data[:, 0], test_data[:, 1], c=test_target, marker="*", label="Test", cmap=plt.cm.RdBu, zorder=2)
-            plt.scatter(test_data[test_mismatch, 0], test_data[test_mismatch, 1], marker="*", s=130, label="Test Errors", c="#ffff00")
-            plt.legend(loc="upper center", ncol=4)
+    votes = np.zeros(shape=(len(test_data), args.classes))
+    for perm in itertools.permutations(range(args.classes), 2):
+        print(f"Training starting for classes: {perm}")
 
-        kernel_f = poly_kernel if args.kernel == "poly" else rbf_kernel
-        predict_for = lambda ins: predict(a, ins, kernel_f, train_data, train_target, bias)
-        plotter(predict_for, support_vectors, data)
-        if args.plot is True: plt.show()
+        b_data, b_target = get_data_only_for_binary(perm, train_data, train_target)
+        test_predictions = smo(args, b_data, b_target, test_data)
+        # test_predictions are 1 , -1 
+        # if target is class perm[0] => pred = 1
+        # if target is class perm[1] => pred = -1
+        for i in range(len(test_predictions)):
+            # voting according to test predictions
+            if test_predictions[i] == 1:
+                votes[i][perm[0]] += 1
+            else:
+                votes[i][perm[1]] += 1
 
-    return support_vectors, support_vector_weights, bias, train_accs, test_accs
+
+    # TODO: Classify the test set by majority voting of all the trained classifiers,
+    # using the lowest class index in the case of ties.
+    #
+    # Note that during prediction, only the support vectors returned by the `smo`
+    # should be used, not all training data.
+    #
+    # Finally, compute the test set prediction accuracy.
+
+    # return index of max vote for each row
+    predictions = np.argmax(votes, axis=1)
+    test_accuracy = sklearn.metrics.accuracy_score(test_target, predictions)
+
+    return test_accuracy
 
 if __name__ == "__main__":
     args = parser.parse_args([] if "__file__" not in globals() else None)
-    main(args)
+    accuracy = main(args)
+    print("Test set accuracy: {:.2f}%".format(100 * accuracy))
