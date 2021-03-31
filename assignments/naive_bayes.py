@@ -19,6 +19,8 @@ parser.add_argument("--seed", default=42, type=int, help="Random seed")
 parser.add_argument("--test_size", default=0.5, type=lambda x:int(x) if x.isdigit() else float(x), help="Test set size")
 # If you add more arguments, ReCodEx will keep them with your default values.
 
+infintesimal = 0.00001
+
 def main(args):
     # Use the digits dataset.
     data, target = sklearn.datasets.load_digits(n_class=args.classes, return_X_y=True)
@@ -73,16 +75,15 @@ def main(args):
         # iterate over each column
         for i in range(test_data.shape[1]):
             loc = locs[i]
-            scale = scales[i]
-            calc_prob = lambda val: scipy.stats.norm.pdf(val, loc=loc, scale=scale)
+            scale = scales[i] + args.alpha
+            calc_prob = lambda val: scipy.stats.norm.pdf(val, loc=loc, scale=scale) * infintesimal
             calc_prob = np.vectorize(calc_prob)
             probs[:, i] = calc_prob(test_data[:, i])
         return probs
 
     def predict_gaussian(train_data, train_target, test_data):
         data_probs = normal_dist_probabilities(train_data, test_data)
-        is_nan = ~np.isnan(data_probs)
-        multiplied_data_probs = np.prod(data_probs, axis=1, where=is_nan)
+        multiplied_data_probs = np.prod(data_probs, axis=1)
         class_probs = calc_class_prob(train_target)
         probs = np.zeros((data_probs.shape[0], len(class_probs)))
 
