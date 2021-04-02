@@ -17,10 +17,13 @@ from sklearn.feature_selection import (
     SelectKBest,
     chi2,
 )
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neighbors import NearestCentroid
 from sklearn.naive_bayes import (
     BernoulliNB,
     GaussianNB,
 )
+from sklearn.linear_model import PassiveAggressiveClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import LinearSVC
 from sklearn.metrics import accuracy_score
@@ -58,17 +61,19 @@ def main(args):
     whole_data = Dataset()
     data_size = size_mb(whole_data.data)
     print(f"{len(whole_data.data)} total twits : Size {data_size:0.3f} MB")
+    print()
 
     X_train, X_test, y_train, y_test = train_test_split(
         whole_data.data, whole_data.target, test_size=args.test_size, random_state=args.seed)
 
     if args.tfidf:
-        print("Using tfidf")
+        print("Using TF-IDF")
+        print()
         vectorizer = TfidfVectorizer(
             stop_words='english',
             max_df = 0.5,
             analyzer='word',
-            ngram_range=(2, 3),
+            ngram_range=(1, 2),
         )
 
     else:
@@ -86,6 +91,7 @@ def main(args):
 
     if args.use_chi2:
         print(f"Extracting {args.use_chi2} best features by chi2 test")
+        print()
         ch2 = SelectKBest(chi2, k=args.use_chi2)
         X_train = ch2.fit_transform(X_train, y_train)
         X_test = ch2.transform(X_test)
@@ -96,23 +102,28 @@ def main(args):
 
     classifiers = [
         BernoulliNB(),
-        LinearSVC(max_iter=100, penalty="l2"),
+        LinearSVC(max_iter=200, penalty="l2"),
+        PassiveAggressiveClassifier(max_iter=200),
         RandomForestClassifier(),
+        NearestCentroid(),
     ]
 
     for clf in classifiers:
         print('=' * 80)
+        print()
         print(clf)
         clf.fit(X_train, y_train)
         predictions = clf.predict(X_test)
         score = accuracy_score(y_test, predictions)
         print(f"accuracy : {score:0.3f}")
-        if args.get_top_words:
-            print("top {args.get_top_words} keywords per class ")
-            for i, label in enumerate(np.unique(y_train)):
-                top = np.argsort(clf.coef_[i])[-args.get_top_words:]
-                top = " ".join(feature_names[top])
-                print(f"{label}: {top}")
+        print()
+        if args.get_top_words and hasattr(clf, 'coef_'):
+            print(f"Top {args.get_top_words} keywords for ironic twits:")
+            print()
+            # sort by weights given than take most important features
+            top = np.argsort(clf.coef_[0])[-args.get_top_words:]
+            top = "\t".join(feature_names[top])
+            print(f"{top}")
         print()
 
 if __name__ == "__main__":
