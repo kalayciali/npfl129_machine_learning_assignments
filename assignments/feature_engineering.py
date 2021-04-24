@@ -47,8 +47,10 @@ def main(args):
     # In the output, there should be first all the one-hot categorical features,
     # and then the real-valued features. To process different dataset columns
     # differently, you can use `sklearn.compose.ColumnTransformer`.
+
     one_hot = sklearn.preprocessing.OneHotEncoder(handle_unknown="ignore",
                                                   sparse=False)
+    # get one hot colmns
     check_colmns = np.mod(X_train, 1)
     one_hot_cols = np.all(check_colmns == check_colmns[0,:], axis = 0)
 

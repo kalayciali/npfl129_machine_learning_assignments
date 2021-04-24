@@ -41,17 +41,18 @@ def main(args):
     best_rmse = np.inf
     rmses = []
 
+    # learning rate
     lambdas = np.geomspace(0.01, 100, num=500)
 
     for alpha in lambdas:
-        # since we added bias ourselves, we need fit_intercept=False
-        # we could also don't need 1s and make fit_intercept=True
+        # it adds bias terms by default ( fit_intercept=True )
         model = sklearn.linear_model.Ridge(alpha=alpha)
         weighted_model = model.fit(X_train, y_train)
 
         calc_target = weighted_model.predict(X_test)
         rmse = sklearn.metrics.mean_squared_error(y_test, calc_target, squared=False)
         rmses.append(rmse)
+
         if rmse < best_rmse:
             best_lambda = alpha
             best_rmse = rmse
@@ -67,6 +68,7 @@ def main(args):
         plt.xscale("log")
         plt.xlabel("L2 regularization strength")
         plt.ylabel("RMSE")
+        plt.title(f"learning rate = {best_lambda:.2f}\nRMSE = {best_rmse:.2f}")
         if args.plot is True: plt.show()
         else: plt.savefig(args.plot, transparent=True, bbox_inches="tight")
 

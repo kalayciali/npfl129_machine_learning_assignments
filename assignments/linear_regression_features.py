@@ -27,6 +27,7 @@ def main(args):
     for order in range(1, args.range + 1):
         # TODO: Create features of x^1, ..., x^order.
         x_data = xs[:, np.newaxis]
+        # it adds bias term also
         features_poly = sklearn.preprocessing.PolynomialFeatures(order)
         x_data = features_poly.fit_transform(x_data)
 
@@ -34,8 +35,8 @@ def main(args):
         # TODO: Split the data into a train set and a test set.
         # Use `sklearn.model_selection.train_test_split` method call, passing
         # arguments `test_size=args.test_size, random_state=args.seed`.
-        X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(x_data, ys,
-                                                                                    test_size=args.test_size,
+        X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(x_data, ys, 
+                                                                                    test_size=args.test_size, 
                                                                                     random_state=args.seed)
 
         # TODO: Fit a linear regression model using `sklearn.linear_model.LinearRegression`.
@@ -54,10 +55,14 @@ def main(args):
             if args.plot is not True:
                 if not plt.gcf().get_axes(): plt.figure(figsize=(6.4*3, 4.8*3))
                 plt.subplot(3, 3, 1 + len(plt.gcf().get_axes()))
-            plt.plot(X_train[:, 0], y_train, "go")
-            plt.plot(X_test[:, 0], y_test, "ro")
+
+            plt.plot(X_train[:, 1], y_train, "go")
+            plt.plot(X_test[:, 1], y_test, "ro")
+
+            predict_range = np.linspace(xs[0], xs[-1], num=100)[:, np.newaxis]
             plt.plot(np.linspace(xs[0], xs[-1], num=100),
-                     model.predict(np.stack([np.linspace(xs[0], xs[-1], num=100)**order for order in range(1, order + 1)], axis=1)), "b")
+                     model.predict(features_poly.transform(predict_range)), "b")
+            plt.title(f"Max features = {order}\nRMSE = {rmse:.2f}")
             if args.plot is True: plt.show()
             else: plt.savefig(args.plot, transparent=True, bbox_inches="tight")
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-# Implementation of simple linear regression 
-# by using formula of it
+# Implementation of basic least squares method
+# where (A.T @ A) is invertible matrix
 
 import argparse
 
@@ -42,14 +42,16 @@ def main(args):
 
     # TODO: Solve the linear regression using the algorithm from the lecture,
     # explicitly computing the matrix inverse (using `np.linalg.inv`).
-    inv_of_matrix_mult_with_transpose = np.linalg.inv(np.transpose(X_train) @ X_train)
-    weight_vec = ( inv_of_matrix_mult_with_transpose @ np.transpose(X_train) ) @ y_train
+    inv_of_matrix = np.linalg.inv(np.transpose(X_train) @ X_train)
+    # weight vec that gives best soln to least squares
+    weight_vec = ( inv_of_matrix @ np.transpose(X_train) ) @ y_train
 
     # TODO: Predict target values on the test set
 
     calc_target_vals = X_test @ weight_vec
 
     # TODO: Compute root mean square error on the test set predictions
+    # squared=False means return square root of mse
     rmse = sklearn.metrics.mean_squared_error(y_test, calc_target_vals, squared=False)
     return rmse
 

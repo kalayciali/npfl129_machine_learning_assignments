@@ -20,13 +20,11 @@ parser.add_argument("--test_size", default=0.5, type=lambda x:int(x) if x.isdigi
 # If you add more arguments, ReCodEx will keep them with your default values.
 
 def add_ones_to_end(data):
-    # data needs to be nparray
+    # data needs to be ndarray
     number_of_instances, features = data.shape
     bias = np.ones((number_of_instances, 1))
     data = np.hstack((data, bias))
     return data
-
-
 
 def main(args):
     # Create a random generator with a given seed
@@ -43,7 +41,6 @@ def main(args):
     # arguments `test_size=args.test_size, random_state=args.seed`.
     train_data, test_data, train_target, test_target = sklearn.model_selection.train_test_split(data, target,
                                                                         test_size=args.test_size, random_state=args.seed)
-    print(train_target.shape)
 
     # Generate initial linear regression weights
     weights = generator.uniform(size=train_data.shape[1])
@@ -62,6 +59,7 @@ def main(args):
         # You can assume that `args.batch_size` exactly divides `train_data.shape[0]`.
 
         for i in range(0, train_data.shape[0] , args.batch_size):
+            # it handles also if data // batch != 0
 
             until = i + args.batch_size
 
@@ -86,11 +84,11 @@ def main(args):
 
             gradients = np.zeros((num_of_batch_instances, train_data.shape[1]))
             for ind in range(num_of_batch_instances):
+                # without regularization
                 gradients[ind] = loss[ind] * batch[ind]
 
             avg_gradient = np.average(gradients, axis=0)
             weights = weights - args.learning_rate * avg_gradient
-
 
 
         # TODO: Append current RMSE on train/test to train_rmses/test_rmses.
@@ -105,8 +103,8 @@ def main(args):
     # TODO: Compute into `explicit_rmse` test data RMSE when
     # fitting `sklearn.linear_model.LinearRegression` on train_data.
     model = sklearn.linear_model.LinearRegression()
-    weighted_model = model.fit(train_data, train_target)
-    calc_target = weighted_model.predict(test_data)
+    model.fit(train_data, train_target)
+    calc_target = model.predict(test_data)
     explicit_rmse = sklearn.metrics.mean_squared_error(test_target, calc_target, squared=False)
 
     if args.plot:
