@@ -44,7 +44,6 @@ def main(args):
     biases = [np.zeros(args.hidden_layer), np.zeros(args.classes)]
 
     def relu(x):
-        # x shape is ()
         return np.maximum(0, x)
 
 
@@ -76,7 +75,8 @@ def main(args):
 
     def forward(inpt, weights, biases):
         # it takes one instance for each time
-        hidden_layer = relu(inpt@ weights[0] + biases[0])
+        # relu non-linear activation
+        hidden_layer = relu(inpt @ weights[0] + biases[0])
         out_layer = softmax(hidden_layer @ weights[1] + biases[1])
         return hidden_layer, out_layer
 
@@ -105,15 +105,19 @@ def main(args):
             inpt, target = train_data[perm], train_target[perm]
             one_hot_target= one_hot_encoding(target, args.classes)
 
+            # instance by instance calculate gradient
             hidden_vals, output_vals = forward(inpt, weights, biases)
             delta = one_hot_target - output_vals
+            # gradient1 = (target - output) @ instance
             g = hidden_vals.reshape(-1, 1) @ delta.reshape(1, -1)
             grad[1] += g
+
             delta = delta @ weights[1].T
             g = (inpt.reshape(-1, 1) @ delta.reshape(1, -1)) * (hidden_vals > 0)
             grad[0] += g
 
             if (i + 1) % args.batch_size == 0:
+                # batch update on weights
                 weights[0] += args.learning_rate * grad[0] / args.batch_size
                 weights[1] += args.learning_rate * grad[1] / args.batch_size
                 grad = [np.zeros_like(weights[0]), np.zeros_like(weights[1])]

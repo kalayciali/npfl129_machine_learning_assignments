@@ -35,13 +35,14 @@ def softmax(z):
     return e_z / e_z.sum(axis=0)
 
 def acc_calc(prediction, target):
+    # return the index of max probability
     if target == prediction.argmax():
         return 1
     else:
         return 0
 
 def loss_calc(prediction):
-    return -np.log(prediction)
+    return prediction @ -np.log(prediction)
 
 def loss_and_acc(data, targets, weights):
     lin_reg = data @ weights
@@ -99,8 +100,8 @@ def main(args):
             lin_reg = np.dot(batch, weights) 
             predictions = softmax(lin_reg)
             # predictions shape is (num_of_batch_instances, num_of_classes)
-            gradient = np.dot(np.matrix.transpose(batch),  predictions - hot_encoded_batch_target)
-            weights = weights - args.learning_rate * gradient / batch.shape[0]
+            gradient = np.dot(batch.T,  predictions - hot_encoded_batch_target) / batch.shape[0]
+            weights = weights - args.learning_rate * gradient
 
         # TODO: After the SGD iteration, measure the average loss and accuracy for both the
         # train test and the test set. The loss is the average MLE loss (i.e., the

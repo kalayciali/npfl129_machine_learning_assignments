@@ -15,7 +15,7 @@ parser.add_argument("--kernel", default="poly", type=str, help="Kernel type [pol
 parser.add_argument("--kernel_degree", default=1, type=int, help="Degree for poly kernel")
 parser.add_argument("--kernel_gamma", default=1.0, type=float, help="Gamma for poly and rbf kernel")
 parser.add_argument("--max_iterations", default=1000, type=int, help="Maximum number of iterations to perform")
-parser.add_argument("--max_passes_without_as_changing", default=10, type=int, help="Number of passes without changes to stop after")
+parser.add_argument("--max_passes_without_as_changing", default=2, type=int, help="Number of passes without changes to stop after")
 parser.add_argument("--plot", default=False, const=True, nargs="?", type=str, help="Plot the predictions")
 parser.add_argument("--recodex", default=False, action="store_true", help="Running in ReCodEx")
 parser.add_argument("--seed", default=42, type=int, help="Random seed")
@@ -170,7 +170,7 @@ def smo(args, train_data, train_target, test_data, test_target):
         if passes_without_as_changing >= args.max_passes_without_as_changing:
             break
 
-        if len(train_accs) % 100 == 0 and len(train_accs) < args.max_iterations:
+        if len(train_accs) % 10 == 0 and len(train_accs) < args.max_iterations:
             print("Iteration {}, train acc {:.1f}%, test acc {:.1f}%".format(
                 len(train_accs), 100 * train_accs[-1], 100 * test_accs[-1]))
 

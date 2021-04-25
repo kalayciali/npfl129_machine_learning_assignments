@@ -50,6 +50,8 @@ def main(args):
     pipe = sklearn.pipeline.Pipeline([('minmax', minmax),
                                       ('poly', poly_feat),
                                       ('logistic', logistic_regress)])
+
+    # logistic_C is regularization param
     param_grid = {
         'poly__degree': [1, 2],
         'logistic__C': [0.01, 1, 100],

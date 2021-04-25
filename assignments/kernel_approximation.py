@@ -14,17 +14,18 @@ import sklearn.pipeline
 import sklearn.svm
 
 from scipy import linalg
-from scipy.sparse.linalg import svds
-from scipy.sparse import csc_matrix
-from numpy import linalg as LA
 
 from math import pi
 
+# You could look at this link
+# I had used nice explanations of it
+# https://maelfabien.github.io/machinelearning/largescale/
 
 parser = argparse.ArgumentParser()
 # These arguments will be set appropriately by ReCodEx, even if you change them.
 parser.add_argument("--gamma", default=0.022, type=float, help="RBF gamma")
 parser.add_argument("--max_iter", default=100, type=int, help="Maximum iterations for LR")
+# see we have large data 
 parser.add_argument("--data_size", default=10000, type=int, help="data size")
 parser.add_argument("--nystroem", default=0, type=int, help="Use Nystroem approximation")
 parser.add_argument("--original", default=False, action="store_true", help="Use original data")
@@ -36,6 +37,11 @@ parser.add_argument("--test_size", default=0.5, type=lambda x:int(x) if x.isdigi
 # If you add more arguments, ReCodEx will keep them with your default values.
 
 class RFFsTransformer(sklearn.base.TransformerMixin):
+    # Totally random fourier approximation
+    # It uses fourier frequency spectrum
+    # bias sampled from uniform(0, 2pi)
+    # weights sampled from normal(0, sqrt(2 * gamma))
+
     def __init__(self, n_components, gamma, seed):
         # n_components is number of feats we will approx
         self._n_components = n_components
@@ -56,7 +62,6 @@ class RFFsTransformer(sklearn.base.TransformerMixin):
 
         # mean, variance, output_shape
         self._W = generator.normal(0, np.sqrt(2*self._gamma), (n_feats, self._n_components))
-        # start, end, shape
         self._b = generator.uniform(0, 2*pi, (1, self._n_components))
         return self
 
@@ -69,6 +74,11 @@ class RFFsTransformer(sklearn.base.TransformerMixin):
         return X_transformed
 
 class NystroemTransformer(sklearn.base.TransformerMixin):
+    # Nystroem approx to Kernel(Gram) Matrix
+    # rank-k approx is bigO(n^2) to bigO(n^3)
+    # Here we are approximating to rank-k approx of G in linear time
+    # With sampling c instances from data
+
     def __init__(self, n_components, gamma, seed):
         self._n_components = n_components
         self._gamma = gamma
@@ -86,6 +96,7 @@ class NystroemTransformer(sklearn.base.TransformerMixin):
         kernel = np.zeros((n_samples_X, n_samples_Z))
         for i in range(n_samples_X):
             for j in range(n_samples_Z):
+                # by default l2 norm
                 exponent = - self._gamma * (np.linalg.norm(X[i] - Z[j]) ** 2)
                 kernel[i, j] = np.exp(exponent)
 
@@ -107,9 +118,12 @@ class NystroemTransformer(sklearn.base.TransformerMixin):
         indices = generator.choice(n_samples, size=self._n_components, replace=False)
 
         X_selected = X[indices, :]
+
         W = self._rbf_kernel(X_selected, X_selected)
 
+
         U, S, Vt = linalg.svd(W, full_matrices=False)
+        # select c important ones from svd of sampled kernel matrix
         U = U[:, :self._n_components]
         S = S[:self._n_components]
         Vt = Vt[:self._n_components, :]

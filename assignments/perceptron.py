@@ -74,5 +74,6 @@ def main(args):
 if __name__ == "__main__":
     args = parser.parse_args([] if "__file__" not in globals() else None)
     weights = main(args)
+    print("Number of features is 3 with bias")
     print("Learned weights", *("{:.2f}".format(weight) for weight in weights))
 

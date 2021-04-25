@@ -57,12 +57,14 @@ def main(args):
 
         for target in counter:
             counter[target] = counter[target]/ total_sum
+        # base class probabilities
         return counter
 
     def std_dev(data):
+        # axis 0 is column direction
         mean_data = np.mean(data, axis=0)
         num_of_instances = data.shape[0]
-        sum_of_differences = np.sum([ (instance - mean_data)**2 for instance in data], axis=0)
+        sum_of_differences = np.sum(np.array([ (instance - mean_data)**2 for instance in data]), axis=0)
         return np.sqrt(sum_of_differences) / float(num_of_instances - 1)
 
     def normal_dist_probabilities(data, test_data):

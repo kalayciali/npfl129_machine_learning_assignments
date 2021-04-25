@@ -8,29 +8,28 @@ import pandas as pd
 import sklearn.metrics
 import sklearn.model_selection
 import sklearn.preprocessing
-from collections import deque
-from collections import Counter
 
 class MNIST:
     """MNIST Dataset.
     The train set contains 42000 images of handwritten digits. The data
     contain 28*28=784 values in range 0-255, the targets are numbers 0-9.
     """
-    def __init__(self, data="mnist_data.csv"):
-        if not (os.path.exists(data)):
+    def __init__(self, fname="mnist_data.csv"):
+        if not (os.path.exists(fname)):
+            print("https://www.kaggle.com/c/digit-recognizer/data?select=train.csv")
             raise FileNotFoundError("You can get MNIST data from Kaggle")
 
         # Load the dataset, i.e., `data` and optionally `target`.
-        data = pd.read_csv(data)
-        self.target = data['label']
-
-        data.drop(['label', ], axis=1, inplace=True)
-        self.data = data
+        data = np.loadtxt(fname, skiprows=1, delimiter=",", dtype=np.uint8)
+        self.target = data[:, 0]
+        # delete target column
+        self.data = np.delete(data, obj=0, axis=1)
 
 parser = argparse.ArgumentParser()
 # These arguments will be set appropriately by ReCodEx, even if you change them.
 parser.add_argument("--k", default=1, type=int, help="K nearest neighbors to consider")
 parser.add_argument("--p", default=2, type=int, help="Use L_p as distance metric")
+parser.add_argument("--plot", default=False, const=True, nargs="?", type=str, help="Plot the predictions")
 parser.add_argument("--recodex", default=False, action="store_true", help="Running in ReCodEx")
 parser.add_argument("--seed", default=42, type=int, help="Random seed")
 parser.add_argument("--test_size", default=1000, type=lambda x:int(x) if x.isdigit() else float(x), help="Test set size")
@@ -62,29 +61,51 @@ def main(args):
     # If you want to plot misclassified examples, you need to also fill `test_neighbors`
     # with indices of nearest neighbors; but it is not needed for passing in ReCodEx.
 
+    # only implemented uniform weight
 
     test_predictions = []
     test_neighbors = []
+    # there are other algorithms to do k_nearest
+    # k d trees could be tried later
     for test_i, test_instance in enumerate(test_data):
         distances = []
         smallest_k_dist_targets = []
         for train_i, train_instance in enumerate(train_data):
-            distance = np.linalg.norm(test_instance - train_instance)
+            distance = np.linalg.norm(test_instance - train_instance, 
+                                      ord=args.p)
             distances.append((train_i, distance))
 
         distances.sort(key=lambda x: x[1])
 
         test_neighbor = []
         for i in range(args.k):
+            # get nearest neighbors
             train_target_i = distances[i][0]
-            smallest_k_dist_targets.append(train_target.iloc[train_target_i])
+            smallest_k_dist_targets.append(train_target[train_target_i])
             test_neighbor.append(train_target_i)
 
         test_neighbors.append(test_neighbor)
-        test_predictions.append(max(set(smallest_k_dist_targets), key=smallest_k_dist_targets.count))
-
+        # get max voted prediction
+        # hard voting
+        test_predictions.append(max(smallest_k_dist_targets, key=smallest_k_dist_targets.count))
 
     accuracy = sklearn.metrics.accuracy_score(test_target, test_predictions)
+
+    if args.plot:
+        import matplotlib.pyplot as plt
+        examples = [[] for _ in range(10)]
+        for i in range(len(test_predictions)):
+            if test_predictions[i] != test_target[i] and not examples[test_target[i]]:
+                examples[test_target[i]] = [test_data[i], *train_data[test_neighbors[i]]]
+
+        examples = [[img.reshape(28, 28) for img in example] for example in examples if example]
+        examples = [[example[0]] + [np.zeros_like(example[0])] + example[1:] for example in examples]
+        plt.imshow(np.concatenate([np.concatenate(example, axis=1) for example in examples], axis=0), cmap="gray")
+        plt.gca().get_xaxis().set_visible(False)
+        plt.gca().get_yaxis().set_visible(False)
+        if args.plot is True: plt.show()
+        else: plt.savefig(args.plot, transparent=True, bbox_inches="tight")
+
 
     return accuracy
 

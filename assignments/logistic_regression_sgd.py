@@ -27,11 +27,11 @@ def add_ones_to_end(data):
     return data
 
 
-def sigmoid(z):
+def sigmoid(y):
     # return vals between 0 and 1
     # aka probability
-    # x is lin_reg result
-    return 1/(1 + np.exp(-z))
+    # y is lin_reg result
+    return 1/(1 + np.exp(-y))
 
 @np.vectorize
 def loss_calc(prediction, target):
@@ -116,9 +116,9 @@ def main(args):
             lin_reg = batch @ weights
 
             predictions = sigmoid(lin_reg)
-            # -batchtarget is for 0 1 separation
-            gradient = np.dot(batch.T , predictions - batch_target)
-            weights = weights - args.learning_rate * gradient / batch_indexes.size
+            # generalized linear models gradient calculation
+            gradient = ( np.dot(batch.T , predictions - batch_target) ) / batch_indexes.size
+            weights = weights - args.learning_rate * gradient
 
         # TODO: After the SGD iteration, measure the average loss and accuracy for both the
         # train test and the test set. The loss is the average MLE loss (i.e., the
