@@ -21,8 +21,8 @@ class DecisionTreeClassifier():
         self.max_depth = max_depth
         self.max_leaves = max_leaves
         self.min_to_split = min_to_split
-        self.feature_splits = None
         self.root = None
+        self.feature_names = None
 
     def _gen_feature_splits(self, data):
 
@@ -64,14 +64,18 @@ class DecisionTreeClassifier():
             return counts
 
     def _split_data(self, data, target, more_l_r=False):
+
         best_criterion = np.inf
+        best_split = None
         best_l = None
         best_r = None
 
         root_counts = self._calc_counts(target)
         root_criterion = self.criterion(root_counts)
 
-        for feat, splits_to_consider in enumerate(self.feature_splits):
+        feat_splits = self._gen_feature_splits(data)
+
+        for feat, splits_to_consider in enumerate(feat_splits):
             for split in splits_to_consider:
 
                 l_indices = (data[:, feat] <= split).nonzero()[0]
@@ -97,8 +101,6 @@ class DecisionTreeClassifier():
                     else:
                         best_l = (l_data, l_target)
                         best_r = (r_data, r_target)
-
-
 
         return best_l, best_r, best_split, best_criterion
     
@@ -127,10 +129,18 @@ class DecisionTreeClassifier():
                 if (self.max_depth and depth < self.max_depth) or not self.max_depth:
                     best_l, best_r, best_split, _ = self._split_data(data, target)
 
-                    tree = Node(self._construct_tree(*best_l, depth + 1),
-                                self._construct_tree(*best_r, depth + 1),
-                                best_split, root_counts, root_criterion, depth)
-                    return tree
+                    if best_l:
+                        # splitted
+                        tree = Node(self._construct_tree(*best_l, depth + 1),
+                                    self._construct_tree(*best_r, depth + 1),
+                                    best_split, root_counts, root_criterion, depth)
+                        return tree
+
+                    else:
+                        # conditions are available for splitting
+                        # but there is no way of splitting 
+                        leaf = Node(None, None, None, root_counts, root_criterion, depth)
+                        return leaf
 
                 else:
                     leaf = Node(None, None, None, root_counts, root_criterion, depth)
@@ -200,9 +210,14 @@ class DecisionTreeClassifier():
             return tree
 
     def __str__(self):
+        # basic print implementation
         nodes = [self.root, ]
 
         for node in nodes:
+            if node.feat_split:
+                feat_i, val = node.feat_split
+                feature = self.feature_names[feat_i]
+                print(' ' * node.depth * 2, feature, f'{val:.2f}')
             print(' ' * node.depth * 2, node.counts)
             print()
             if node.left:
@@ -211,9 +226,8 @@ class DecisionTreeClassifier():
                 nodes.append(node.right)
         return ''
 
-
-    def fit(self, data, target):
-        self.feature_splits = self._gen_feature_splits(data)
+    def fit(self, data, target, feature_names=None):
+        self.feature_names = feature_names
         self.root = self._construct_tree(data, target)
         return self
 
@@ -239,7 +253,9 @@ def main(args):
     # Use the wine dataset
     # targets are 0, 1, 2
     # 13 features
-    data, target = sklearn.datasets.load_wine(return_X_y=True)
+    data = sklearn.datasets.load_wine()
+    feature_names = data.feature_names
+    data, target = data.data, data.target
 
     # Split the data randomly to train and test using `sklearn.model_selection.train_test_split`,
     # with `test_size=args.test_size` and `random_state=args.seed`.
@@ -249,7 +265,7 @@ def main(args):
     tree = DecisionTreeClassifier(criterion=args.criterion, max_depth=args.max_depth,
                                   max_leaves=args.max_leaves, min_to_split=args.min_to_split)
 
-    tree.fit(train_data, train_target)
+    tree.fit(train_data, train_target, feature_names)
     print(tree)
     train_pred = tree.predict(train_data)
     test_pred = tree.predict(test_data)
