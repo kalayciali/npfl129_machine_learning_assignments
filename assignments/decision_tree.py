@@ -2,7 +2,6 @@
 import argparse
 
 from recordclass import recordclass
-import math
 
 import numpy as np
 import sklearn.datasets
@@ -44,16 +43,25 @@ class DecisionTreeClassifier():
     def _gini(self, counts):
         data_size = sum(counts)
         probs = counts / data_size
-        return data_size * sum([p * (1 - p) for p in probs])
+        gini_f = np.vectorize(lambda p: p * (1 - p))
+        return data_size * sum(gini_f(probs))
 
     def _entropy(self, counts):
         data_size = sum(counts)
         probs = counts / data_size
-        return - data_size * sum([p * math.log(p)  for p in probs])
+        entropy_f = np.vectorize(lambda p: p * np.log(p))
+        return - data_size * sum(entropy_f(probs))
 
     def _calc_counts(self, target):
-        _, counts = np.unique(target, return_counts=True)
-        return counts
+        # assume 3 class
+        y = np.bincount(target)
+        if len(y) == 3:
+            return y
+        else:
+            counts = np.zeros(3, dtype=np.int8)
+            for i, val in enumerate(y):
+                counts[i] = val
+            return counts
 
     def _split_data(self, data, target, more_l_r=False):
         best_criterion = np.inf
@@ -174,9 +182,9 @@ class DecisionTreeClassifier():
                     l_data, l_target, l_counts, l_criterion = best_l
                     r_data, r_target, r_counts, r_criterion = best_r
 
-
                     del current_leaves[best_i]
-                    print(splitted_node)
+
+                    splitted_node.feat_split = best_split
 
                     node_left = Node(None, None, None, l_counts, l_criterion, depth + 1)
                     splitted_node.left = node_left
@@ -190,6 +198,19 @@ class DecisionTreeClassifier():
                     break
 
             return tree
+
+    def __str__(self):
+        nodes = [self.root, ]
+
+        for node in nodes:
+            print(' ' * node.depth * 2, node.counts)
+            print()
+            if node.left:
+                nodes.append(node.left)
+            if node.right:
+                nodes.append(node.right)
+        return ''
+
 
     def fit(self, data, target):
         self.feature_splits = self._gen_feature_splits(data)
@@ -229,6 +250,7 @@ def main(args):
                                   max_leaves=args.max_leaves, min_to_split=args.min_to_split)
 
     tree.fit(train_data, train_target)
+    print(tree)
     train_pred = tree.predict(train_data)
     test_pred = tree.predict(test_data)
 
