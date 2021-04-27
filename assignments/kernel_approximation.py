@@ -13,8 +13,6 @@ import sklearn.model_selection
 import sklearn.pipeline
 import sklearn.svm
 
-from scipy import linalg
-
 from math import pi
 
 # You could look at this link
@@ -122,13 +120,18 @@ class NystroemTransformer(sklearn.base.TransformerMixin):
         W = self._rbf_kernel(X_selected, X_selected)
 
 
-        U, S, Vt = linalg.svd(W, full_matrices=False)
-        # select c important ones from svd of sampled kernel matrix
-        U = U[:, :self._n_components]
-        S = S[:self._n_components]
-        Vt = Vt[:self._n_components, :]
+        # we are certain that W will be symmetric matrix
+        U, S, Vt = np.linalg.svd(W, hermitian=True, full_matrices=False)
 
-        self._M = np.dot(U, np.diag(1 / np.sqrt(S)))
+        # if you want to make process faster
+        # select k important ones from svd of sampled kernel matrix
+
+        # diagonal could have very near 0 vals 
+        # which makes division blow up
+        # we need to add some small number just to diagonal
+        evals = np.diag(S) + 10 ** -12
+
+        self._M = np.dot(U, 1 / np.sqrt(evals))
         self._train_X = X_selected
 
         return self
@@ -149,6 +152,9 @@ def main(args):
 
     features = []
     if args.original:
+        # like identity transformer
+        # when you don't feed any function
+        # it doesn't do anything to features
         features.append(("original", sklearn.preprocessing.FunctionTransformer()))
     if args.rff:
         features.append(("rff", RFFsTransformer(args.rff, args.gamma, args.seed)))
