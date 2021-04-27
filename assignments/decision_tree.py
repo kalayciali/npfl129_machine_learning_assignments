@@ -105,6 +105,7 @@ class DecisionTreeClassifier():
         return best_l, best_r, best_split, best_criterion
     
     def _construct_tree(self, data, target, depth = 0):
+        # multiple time calc root counts 
         root_counts = self._calc_counts(target)
         root_criterion = self.criterion(root_counts)
 
@@ -209,22 +210,6 @@ class DecisionTreeClassifier():
 
             return tree
 
-    def __str__(self):
-        # basic print implementation
-        nodes = [self.root, ]
-
-        for node in nodes:
-            if node.feat_split:
-                feat_i, val = node.feat_split
-                feature = self.feature_names[feat_i]
-                print(' ' * node.depth * 2, feature, f'{val:.2f}')
-            print(' ' * node.depth * 2, node.counts)
-            print()
-            if node.left:
-                nodes.append(node.left)
-            if node.right:
-                nodes.append(node.right)
-        return ''
 
     def fit(self, data, target, feature_names=None):
         self.feature_names = feature_names
@@ -247,6 +232,23 @@ class DecisionTreeClassifier():
     def predict(self, data):
         predictions = np.apply_along_axis(self._predict_one, 1, data)
         return predictions
+
+    def __str__(self):
+        # basic print implementation
+        nodes = [self.root, ]
+
+        for node in nodes:
+            if node.feat_split:
+                feat_i, val = node.feat_split
+                feature = self.feature_names[feat_i]
+                print(' ' * node.depth * 2, feature, f'{val:.2f}')
+            print(' ' * node.depth * 2, node.counts)
+            print()
+            if node.left:
+                nodes.append(node.left)
+            if node.right:
+                nodes.append(node.right)
+        return ''
             
 
 def main(args):
