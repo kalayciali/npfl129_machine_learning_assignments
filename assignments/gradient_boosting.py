@@ -19,27 +19,20 @@ class LogisticLoss():
     # sigmoid function here
 
     @classmethod
-    def sigmoid(cls, x):
-        return 1 / (1 + np.exp(-x))
+    def sigmoid(cls, y):
+        return 1 / (1 + np.exp(-y))
 
     @classmethod
     def gradient(cls, true_y, pred_y):
         # gradient of loss wrt pred_y
         prob = cls.sigmoid(pred_y)
-        return -(true_y - prob)
+        return - (true_y - prob)
 
     @classmethod
     def hessian(cls, true_y, pred_y):
         # second deriv wrt pred_y
         prob = cls.sigmoid(pred_y)
         return prob * (1 - prob) 
-
-    @classmethod
-    def loss(cls, true_y, pred_y):
-        # clip vals to silence warnings 
-        # pred_y = np.clip(pred_y, 1e-15, 1 - 1e-15)
-        probs = cls.sigmoid(pred_y)
-        return true_y * np.log(probs) + (1 - true_y) * np.log(1 - probs)
 
 
 class GradientTree():
@@ -57,10 +50,11 @@ class GradientTree():
 
     def _calc_gain(self, true_y, pred_y):
         # calculation of information gain 
-        sum_of_grad = (true_y * self.loss.gradient(true_y, pred_y)).sum()
+        # each time splitted data is coming
+        sum_of_grad = self.loss.gradient(true_y, pred_y).sum()
         nominator = np.power(sum_of_grad, 2)
         denominator = self.l2 + self.loss.hessian(true_y, pred_y).sum()
-        return 0.5 * (nominator / denominator)
+        return - 0.5 * (nominator / denominator)
 
     def _gen_feature_splits(self, data):
 
@@ -79,9 +73,9 @@ class GradientTree():
         return feature_splits
 
     def _leaf_weights(self, true_y, pred_y):
-        gradient = np.sum(true_y * self.loss.gradient(true_y, pred_y), axis=0)
+        gradient = np.sum(self.loss.gradient(true_y, pred_y), axis=0)
         hessian = np.sum(self.loss.hessian(true_y, pred_y), axis=0)
-        return gradient / (self.l2 + hessian)
+        return - gradient / (self.l2 + hessian)
 
     def _split_data(self, data, true_y, pred_y):
 
@@ -109,14 +103,10 @@ class GradientTree():
                     best_gain = gain_if_split
                     best_split = (feat, split)
 
-                    l_data, l_true_y, l_pred_y = data[l_ind], true_y[l_ind], pred_y[l_ind]
-                    r_data, r_true_y, r_pred_y = data[r_ind], true_y[r_ind], pred_y[r_ind]
-
-                    best_l = (l_data, l_true_y, l_pred_y)
-                    best_r = (r_data, l_true_y, l_pred_y)
+                    best_l = (data[l_ind], true_y[l_ind], pred_y[l_ind])
+                    best_r = (data[r_ind], true_y[r_ind], pred_y[r_ind])
 
         return best_l, best_r, best_split
-
 
 
     def _construct_tree(self, data, true_y, pred_y, depth=0):
@@ -136,7 +126,6 @@ class GradientTree():
             else:
                 # conditions are available for splitting
                 # but there is no way of splitting 
-
                 # calc leaf weights
                 optimal_weight = self._leaf_weights(true_y, pred_y)
                 leaf = Node(None, None, None, optimal_weight)
@@ -242,7 +231,7 @@ class GradientBoostedClassifier():
             update = tree.predict(data)
 
             # did max gain, now we are subtracting
-            y_pred -= np.multiply(self.learning_rate, update)
+            y_pred += np.multiply(self.learning_rate, update)
 
     def predict(self, data):
         pred_target = None
@@ -251,7 +240,7 @@ class GradientBoostedClassifier():
             if pred_target is None:
                 pred_target = np.zeros_like(pred_of_tree)
             # did max gain, now we are subtracting
-            pred_target -= np.multiply(self.learning_rate, pred_of_tree)
+            pred_target += np.multiply(self.learning_rate, pred_of_tree)
 
         # make probability distribution of it
         pred_target = self._softmax(pred_target)
@@ -273,8 +262,6 @@ def main(args):
     clf.fit(train_data, train_target)
     train_predict = clf.predict(train_data)
     test_predict = clf.predict(test_data)
-    print(train_predict)
-    print(train_target)
     print(test_predict)
     print(test_target)
 
@@ -301,9 +288,7 @@ if __name__ == "__main__":
     # If you add more arguments, ReCodEx will keep them with your default values.
 
     args = parser.parse_args([] if "__file__" not in globals() else None)
-    train_accuracies, test_accuracies = main(args)
+    train_accuracy, test_accuracy = main(args)
 
-    for i, (train_accuracy, test_accuracy) in enumerate(zip(train_accuracies, test_accuracies)):
-        print("Using {} trees, train accuracy: {:.1f}%, test accuracy: {:.1f}%".format(
-            i + 1, 100 * train_accuracy, 100 * test_accuracy))
+    print("Using {} trees, train accuracy: {:.1f}%, test accuracy: {:.1f}%".format(args.trees, 100 * train_accuracy, 100 * test_accuracy))
 
