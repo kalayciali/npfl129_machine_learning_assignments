@@ -3,7 +3,7 @@ import argparse
 
 import collections
 import numpy as np
-import scipy.stats
+import math
 
 import sklearn.datasets
 import sklearn.metrics
@@ -12,19 +12,17 @@ import sklearn.model_selection
 parser = argparse.ArgumentParser()
 # These arguments will be set appropriately by ReCodEx, even if you change them.
 parser.add_argument("--alpha", default=0.1, type=float, help="Smoothing parameter for Bernoulli and Multinomial NB")
-parser.add_argument("--naive_bayes_type", default="gaussian", type=str, help="NB type to use")
 parser.add_argument("--classes", default=10, type=int, help="Number of classes")
 parser.add_argument("--recodex", default=False, action="store_true", help="Running in ReCodEx")
 parser.add_argument("--seed", default=42, type=int, help="Random seed")
 parser.add_argument("--test_size", default=0.5, type=lambda x:int(x) if x.isdigit() else float(x), help="Test set size")
 # If you add more arguments, ReCodEx will keep them with your default values.
 
-infintesimal = 0.00001
+# infinitesimal step to calc prob. from PDF
 
 def main(args):
     # Use the digits dataset.
     data, target = sklearn.datasets.load_digits(n_class=args.classes, return_X_y=True)
-
 
     # Split the dataset into a train set and a test set.
     train_data, test_data, train_target, test_target = sklearn.model_selection.train_test_split(
@@ -67,38 +65,70 @@ def main(args):
         sum_of_differences = np.sum(np.array([ (instance - mean_data)**2 for instance in data]), axis=0)
         return np.sqrt(sum_of_differences) / float(num_of_instances - 1)
 
-    def normal_dist_probabilities(data, test_data):
-        # means of column values
-        locs = np.mean(data, axis=0)
-        # std_devs of column values
-        scales = std_dev(data)
+    def get_feat_mean_var_for_classes(data, target):
 
-        probs = np.zeros(test_data.shape)
+        classes = np.unique(target)
+        mean_var_of_clms = {}
+        for c in classes:
+            data_c = data[np.where(target == c)]
+            # means of column values
+            locs = np.mean(data_c, axis=0)
+            # std_devs of column values
+            scales = std_dev(data_c)
+            mean_var_of_clms[c] = (locs, scales)
+
+        return mean_var_of_clms
+
+    @np.vectorize
+    def calc_gaussian(x, mean, var):
+        coeff = 1.0 / math.sqrt(2.0 * math.pi * var + args.alpha)
+        exponent = math.exp(-(math.pow(x - mean, 2) / (2 * var + args.alpha)))
+        return coeff * exponent
+
+    def calc_data_prob(data, locs, scales):
+        # calc_prob with 
+        # certain class means and std_vars
+        probs = np.zeros(data.shape)
         # iterate over each column
         for i in range(test_data.shape[1]):
             loc = locs[i]
             scale = scales[i] + args.alpha
-            calc_prob = lambda val: scipy.stats.norm.pdf(val, loc=loc, scale=scale) * infintesimal
-            calc_prob = np.vectorize(calc_prob)
-            probs[:, i] = calc_prob(test_data[:, i])
+            probs[:, i] = calc_gaussian(test_data[:, i], loc, scale)
         return probs
 
-    def predict_gaussian(train_data, train_target, test_data):
-        data_probs = normal_dist_probabilities(train_data, test_data)
-        multiplied_data_probs = np.prod(data_probs, axis=1)
+    def fit(train_data, train_target):
+
+        mean_var_of_clms = get_feat_mean_var_for_classes(train_data, train_target)
         class_probs = calc_class_prob(train_target)
-        probs = np.zeros((data_probs.shape[0], len(class_probs)))
+        return mean_var_of_clms, class_probs
 
-        # assuming here label as int
-        for i, prob in enumerate(multiplied_data_probs):
-            for label, class_prob in class_probs.items():
-                probs[i][label] = class_prob * prob
+    def predict(test_data, mean_var_of_clms, class_probs):
+        # i didn't used class so thats why passing things around
 
-        pred = np.argmax(probs, axis=1)
-        return pred
+        biggest_probs = None
+        predictions = None
 
+        for c in class_probs:
+            # assuming target is some integer
+            base_prob = class_probs[c]
+            mean_var = mean_var_of_clms[c] 
+            data_probs = calc_data_prob(test_data, *mean_var)
+            probs = np.multiply(base_prob, np.prod(data_probs, axis=1))
 
-    predictions = predict_gaussian(train_data, train_target, test_data)
+            if biggest_probs is None:
+                biggest_probs = probs
+                predictions = np.full_like(biggest_probs, int(c), dtype=np.int8)
+                continue
+
+            inds = np.nonzero(probs > biggest_probs)
+            predictions[inds] = int(c)
+            biggest_probs[inds] = probs[inds]
+
+        return predictions
+
+    mean_var_of_clms, class_probs = fit(train_data, train_target)
+    predictions = predict(test_data, mean_var_of_clms, class_probs)
+
     test_accuracy = sklearn.metrics.accuracy_score(test_target, predictions)
 
     return test_accuracy

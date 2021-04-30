@@ -262,8 +262,6 @@ def main(args):
     clf.fit(train_data, train_target)
     train_predict = clf.predict(train_data)
     test_predict = clf.predict(test_data)
-    print(test_predict)
-    print(test_target)
 
     train_accuracies = sklearn.metrics.accuracy_score(train_target, train_predict)
     test_accuracies = sklearn.metrics.accuracy_score(test_target, test_predict)
