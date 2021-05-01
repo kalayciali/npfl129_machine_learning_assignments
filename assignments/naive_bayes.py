@@ -81,8 +81,8 @@ def main(args):
 
     @np.vectorize
     def calc_gaussian(x, mean, var):
-        coeff = 1.0 / math.sqrt(2.0 * math.pi * var + args.alpha)
-        exponent = math.exp(-(math.pow(x - mean, 2) / (2 * var + args.alpha)))
+        coeff = 1.0 / math.sqrt(2.0 * math.pi * var )
+        exponent = math.exp(-(math.pow(x - mean, 2) / (2 * var)))
         return coeff * exponent
 
     def calc_data_prob(data, locs, scales):
@@ -92,6 +92,7 @@ def main(args):
         # iterate over each column
         for i in range(test_data.shape[1]):
             loc = locs[i]
+            # add small val to var 
             scale = scales[i] + args.alpha
             probs[:, i] = calc_gaussian(test_data[:, i], loc, scale)
         return probs
