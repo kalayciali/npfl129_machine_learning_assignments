@@ -96,6 +96,18 @@ def main(args):
 
     # Run `args.iterations` of the gaussian mixture fitting algorithm
 
+    def calc_prior_normal_multip(data, covs, means, priors):
+        prior_normal_multip = np.zeros((args.clusters, data.shape[0]))
+
+        for k in range(args.clusters):
+            prior = priors[k]
+            mean = means[k]
+            cov = covs[k]
+            prob_func = lambda x : prior * multivariate_normal.pdf(x, mean, cov, allow_singular=True)
+            prior_normal_multip[k] = np.apply_along_axis(prob_func, 1, data)
+        return prior_normal_multip
+
+
     losses = []
     for iteration in range(args.iterations):
         # TODO: Evaluate resps. You can use
@@ -103,16 +115,9 @@ def main(args):
         # a multivariate Gaussian distribution.
         # Evaluation step of EM
 
-        prior_normal_multip = np.zeros((args.clusters, data.shape[0]))
-
-        for k in range(args.clusters):
-            prior = mixing_coefs[k]
-            mean = means[k]
-            cov = covs[k]
-            prob_func = lambda x : prior * multivariate_normal.pdf(x, mean, cov, allow_singular=True)
-            prior_normal_multip[k] = np.apply_along_axis(prob_func, 1, data)
-
+        prior_normal_multip = calc_prior_normal_multip(data, covs, means, mixing_coefs)
         sum_of_prior_normal_multips = np.sum(prior_normal_multip, axis=0)
+        print(sum_of_prior_normal_multips)
         resps = prior_normal_multip / sum_of_prior_normal_multips
 
         # TODO: Update cluster `means`, `covs` and `mixing_coefs`.
@@ -123,22 +128,16 @@ def main(args):
             sum_of_resps = np.sum(resps[k,:])
             means[k] = (resps[k, :] @ data) / sum_of_resps
 
-            cov = np.zeros_like(covs[k])
+            covs[k] = np.zeros_like(covs[k])
             for i, ins in enumerate(data):
-                cov += resps[k, :][i] * ((ins - means[k]) @ (ins - means[k]).T)
+                covs[k] += resps[k, :][i] * ((ins - means[k]) @ (ins - means[k]).T)
 
-            covs[k] = cov / sum_of_resps
+            covs[k] = covs[k] / sum_of_resps
             mixing_coefs[k] = sum_of_resps / data.shape[0]
 
         # TODO: Compute the negative log likelihood of the current model to `loss`.
 
-        prior_normal_multip = np.zeros((args.clusters, data.shape[0]))
-        for k in range(args.clusters):
-            prior = mixing_coefs[k]
-            mean = means[k]
-            cov = covs[k]
-            prob_func = lambda x : prior * multivariate_normal.pdf(x, mean, cov, allow_singular=True)
-            prior_normal_multip[k] = np.apply_along_axis(prob_func, 1, data)
+        prior_normal_multip = calc_prior_normal_multip(data, covs, means, mixing_coefs)
 
         neg_log_likelihood = - np.log(np.sum(prior_normal_multip, 0))
         loss = np.sum(neg_log_likelihood)
@@ -148,7 +147,7 @@ def main(args):
 
         if args.plot:
             # If you want the plotting code to work, `r` must have shape [args.clusters, data.shape[0]].
-            plot(args, 1 + iteration, data, r, means, covs, colors)
+            plot(args, 1 + iteration, data, resps, means, covs, colors)
 
     return losses
 
