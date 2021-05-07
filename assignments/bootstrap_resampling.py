@@ -56,6 +56,7 @@ def main(args):
 
     # TODO: Compute the 95% confidence intervals of the two model scores into
     # `confidence_intervals`. Use `np.percentile` to compute percentiles.
+    diff_of_m1_m0 = np.diff(scores, axis=0)[0]
     percent2_5 = np.percentile(scores, 2.5, axis=1)
     percent97_5 = np.percentile(scores, 97.5, axis=1)
 
@@ -70,7 +71,6 @@ def main(args):
     #
     # Notably, compute the p-value as the ratio of the model score differences
     # which are less or equal to zero. Store it in `p_value` as a percentage.
-    diff_of_m1_m0 = np.diff(scores, axis=0)[0]
     p_value = np.count_nonzero(diff_of_m1_m0 <= 0) / len(diff_of_m1_m0)
 
     # Plot the histograms, confidence intervals and the p-value if requested.
